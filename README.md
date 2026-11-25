@@ -1,111 +1,119 @@
-# 과제 2 신청 승인 서비스 시작 코드
+# 웹서비스설계 과제 2 · 신청 승인 서비스
 
-신청·대기 취소·직접 승인·승인 취소·대기열 자동 승급·변경 이력을 구현합니다. 상위 폴더의 [안내문](../01_과제2_안내문.pdf)과 [API 계약](docs/API.md)을 먼저 읽으세요.
+## 서비스 소개
 
-**제출 마감: 2026년 11월 25일 23:59 (한국 시간)**
+신청 승인 서비스는 학생이 행사 참가를 신청하고, 담당 운영자가 신청을 승인하거나 승인 취소할 수 있는 웹서비스이다. 신청·대기 취소·직접 승인·승인 취소·대기열 자동 승급·변경 이력 기능을 구현했다.
 
-## 실행
+## 구현 완료 여부
 
-Node.js **24.x**와 npm이 필요합니다. Node.js 20은 지원하지 않습니다. SQLite는 Node 내장 모듈입니다.
+| 항목 | 결과 |
+| --- | --- |
+| 신청 | 완료 |
+| 대기 취소 | 완료 |
+| 담당 운영자 승인 | 완료 |
+| 승인 취소 | 완료 |
+| FIFO 자동 승급 | 완료 |
+| 변경 이력 저장 | 완료 |
+| 트랜잭션 및 전체 롤백 | 완료 |
+| T01~T32 필수 테스트 | 전체 통과 |
+| 기본 테스트 | 4/4 통과 |
+| U01~U05 화면 검증 | 완료 |
 
-```sh
-node --version
-npm ci
-npm test
-npm start
+## 실행 환경
+
+- Windows PowerShell
+- Node.js 24.22.3 · npm
+- Express 5.3.0
+- SQLite (`node:sqlite`)
+- JWT (`jsonwebtoken`)
+
+`starter`를 프로젝트 루트로 사용한다. 해당 폴더에서 다음 명령을 실행한다.
+
+```powershell
+npm.cmd ci
+npm.cmd test
+npm.cmd run test:assignment
+npm.cmd start
 ```
 
-http://127.0.0.1:3000 에 접속합니다. Ctrl+C로 종료합니다.
+기본 접속 주소는 [http://127.0.0.1:3000](http://127.0.0.1:3000)이다. 서버는 `Ctrl+C`로 종료한다. 포트가 사용 중이면 기존 서버를 종료하거나 PowerShell에서 `$env:PORT = '3001'`로 다른 포트를 지정한 뒤 서버를 시작한다.
 
-- 포트 사용 중: 기존 실행 터미널을 종료하거나 다른 포트를 사용합니다.
-- macOS / Linux: `PORT=3001 npm start`
-- Windows PowerShell: `$env:PORT="3001"; npm start`
-- 첫 실행: `data/app.sqlite`와 `data/jwt-secret.txt`가 자동 생성됩니다.
-- 브라우저 로그인 토큰은 메모리에만 저장합니다. 새로고침 후 다시 로그인하세요. DB 데이터는 유지됩니다.
+### 연습 계정
 
-## 연습 계정
+| 아이디 | 이름 | 역할 |
+| --- | --- | --- |
+| `alice` | 민지 | 학생 |
+| `bob` | 준호 | 학생 |
+| `charlie` | 서연 | 학생 |
+| `manager1` | 운영자 A | 행사 1 담당, 정원 2명 |
+| `manager2` | 운영자 B | 행사 2 담당, 정원 1명 |
 
-공통 비밀번호는 `Classroom123!`입니다. 실제 이용자가 아닌 가상 계정입니다.
+로그인 화면의 계정 버튼으로 가상 계정의 입력값을 채울 수 있다. 역할별로 브라우저 탭을 나누어 화면을 확인할 수 있다.
 
-|아이디|이름|역할|
-|---|---|---|
-|alice|민지|학생|
-|bob|준호|학생|
-|charlie|서연|학생|
-|manager1|운영자 A|행사 1 담당 · 정원 2명|
-|manager2|운영자 B|행사 2 담당 · 정원 1명|
+### DB 초기화와 재실행
 
-로그인 화면의 계정 버튼으로 입력값을 채우고 로그인 버튼을 누릅니다. 각 탭은 별도 토큰을 사용하므로 일반 탭 여러 개로 역할을 나눌 수 있습니다.
+서버를 종료한 뒤 `npm.cmd run db:reset`을 실행하고 `RESET`을 입력하면 신청과 변경 이력이 초기화되고 가상 계정과 행사가 다시 생성된다. 이전 배포본 DB를 사용했다면 이 초기화 절차를 거친 뒤 새 코드를 실행한다. 상태와 이력의 영속성을 확인할 때는 DB를 초기화하지 않고 서버를 종료·재실행한 뒤 다시 로그인한다.
 
-## 제공 코드와 구현할 부분
+## 변경 파일
 
-로그인·JWT 인증, 스키마와 가상 계정, 조회 API와 권한 검사, 입력 형식 검사, 기본 화면, SQL 조회·저장 도구를 제공합니다.
+| 위치 | 구현 및 기록 내용 |
+| --- | --- |
+| [src/application-service.js](src/application-service.js) | `apply`, `cancel`, `approve`, `revoke` 업무 규칙을 구현했다. 로그인 사용자 권한, 신청 상태, 정원, 중복, 승인 취소 사유를 검사하고, 상태 변경과 이력 저장을 한 트랜잭션으로 처리한다. 오류 시 전체를 롤백한다. |
+| [src/repository.js](src/repository.js) | 같은 행사의 `PENDING` 신청을 `created_at ASC, id ASC` 순서로 조회해 첫 한 건을 반환하는 `firstPending`을 추가했다. |
+| [docs/evidence/](docs/evidence/) | 필수 자동 테스트와 U01~U05 화면 검증에 사용한 실제 캡처를 기록했다. |
 
-`src/application-service.js`의 TODO 4개는 초기 상태에서 501을 반환합니다.
+제공 코드의 로그인·JWT 인증, DB 스키마와 초기 데이터, API 라우팅과 입력 형식 검사, 조회 권한, 기본 화면과 기존 SQL 조회·저장 함수를 사용했다. 과제에서 구현한 부분은 네 변경 함수의 업무 규칙과 트랜잭션, FIFO 조회다. `tests/`의 테스트 파일과 기대값은 수정하지 않았다.
 
-1. `apply`: 행사·학생·중복 검사, PENDING 저장과 APPLY 이력
-2. `cancel`: 학생 본인의 PENDING 취소, CANCELLED와 CANCEL 이력
-3. `approve`: 담당자·상태·정원 검사, APPROVED와 APPROVE 이력
-4. `revoke`: 담당자의 승인 취소, 다음 대기자 1명 승급, 두 이력의 원인 연결
+## 검증 결과
 
-모든 상태 변경과 이력 저장을 트랜잭션으로 묶으세요. 특히 revoke에서는 신청 2건과 이력 2건의 부분 저장을 막아야 합니다. 대기자 선택, 업무 규칙, 이력 저장 시점, 트랜잭션 경계는 학생 구현입니다. repository 함수 자체는 권한을 검사하지 않습니다. 보조 함수·SQL·파일은 필요하면 추가할 수 있습니다.
+| 검증 | 결과 |
+| --- | --- |
+| `npm.cmd test` | 기본 테스트 4개 중 4개 통과 |
+| `npm.cmd run test:assignment` | T01~T32 전체 통과 |
+| 실패 테스트 | 0개 |
+| U01~U05 화면 검증 | 완료 |
 
-## 테스트
+T28~T30의 `TEST_INJECTED_FAILURE`는 임시 DB에 이력 저장 오류를 의도적으로 주입했을 때 출력되는 로그다. 세 테스트는 HTTP 500과 요청 전후 신청 상태 및 변경 이력의 일치를 확인해 전체 롤백을 검증했다. [자동 테스트 결과 캡처](docs/evidence/01-test-results-T01-T32.png)
 
-```sh
-npm test
-npm run test:assignment
-npm run test:advanced
-```
+| 화면 검증 | 결과 및 증거 |
+| --- | --- |
+| U01 | 민지의 행사 1 대기 신청과 운영자 A의 승인을 확인했다. 승인 후 학생 탭을 다시 조회한 장면은 캡처에 없다. [대기 신청](docs/evidence/02-U01-alice-pending.png) · [운영자 승인](docs/evidence/03-U01-manager-approve.png) |
+| U02 | 민지가 행사 2 대기 신청을 취소했고, 오래된 운영자 화면의 승인 요청은 `409 INVALID_STATE`로 거부됐다. [취소 전](docs/evidence/04-U02-before-cancel.png) · [취소 및 이력](docs/evidence/05-U02-student-cancelled.png) · [승인 거부](docs/evidence/06-U02-old-manager-rejected.png) |
+| U03 | 서버 재실행 후 재로그인했을 때 취소 상태와 변경 이력이 유지됐다. [재실행 후 상태 및 이력](docs/evidence/07-U03-restart-persistence.png) |
+| U04 | 민지 승인 취소 후 준호가 자동 승인됐고 서연은 대기 상태를 유지했다. `AUTO_APPROVE` 이력이 원인 `REVOKE` 이력 ID를 참조했다. [대기 순서](docs/evidence/08-U04-three-pending.png) · [민지 승인](docs/evidence/09-U04-alice-approved.png) · [자동 승급](docs/evidence/10-U04-auto-promotion-result.png) · [이력 연결](docs/evidence/11-U04-auto-approve-history.png) |
+| U05 | 대기자가 없는 승인 취소 후 `REVOKED`, 승인 0명을 확인했다. 응답의 `promoted=null`은 T17에서 검증했다. [최종 상태](docs/evidence/12-U05-final.png) |
 
-- `npm test`: 제공 기반 기능 4개. 구현 전과 후 모두 통과해야 합니다.
-- `test:assignment`: 필수 32개. TODO 구현 전 일부 실패가 정상입니다.
-- `test:advanced`: 선택 심화. 서버 2개가 마지막 자리를 동시에 승인하는 검사를 20회 수행합니다. 미수행은 감점하지 않습니다.
+## 알려진 문제와 한계
 
-테스트는 별도 임시 DB·포트를 사용합니다. 필수 테스트 T28~T30은 임시 DB 트리거로 이력 저장 실패를 주입합니다. `TEST_INJECTED_FAILURE` 로그는 이 검사의 의도된 오류입니다. HTTP 500뿐 아니라 상태·이력 전체가 요청 전과 같은지 검사합니다. 테스트가 오류를 흉내 내므로 실제 서비스 코드에 특별 처리를 넣지 마세요. 기대값 변경이나 테스트 삭제는 허용하지 않습니다.
+- 로컬 환경에서 검증했다. 공개 서버 배포는 수행하지 않았다.
+- 선택 심화 동시성 테스트는 이번 필수 검증 결과에 포함하지 않았다.
+- 브라우저 탭 간 변경 사항은 자동 반영되지 않는다. 상태와 이력을 확인하려면 화면에서 ‘최신 정보 새로고침’을 사용한다.
 
-## 화면 검증
+## AI 활용
 
-- U01: alice 신청 → manager1 승인 → 학생이 최신 상태 확인.
-- U02: 운영자가 대기 목록 조회 → 학생이 대기 취소 → 오래된 운영자 화면의 승인 거부(409)와 CANCELLED 유지.
-- U03: 서버 종료·재실행 → 재로그인 → 신청 상태와 이력 유지.
-- U04: 새 DB에서 행사 2에 alice·bob·charlie 순서로 신청 → manager2가 alice 승인 → alice 승인 취소(사유 입력) → bob 자동 승인, charlie 대기 유지 → alice와 bob의 변경 이력에서 원인 ID 연결 확인.
-- U05: 새 DB에서 alice만 행사 2 신청·승인 → 승인 취소 → REVOKED, 승인 인원 0명, 응답 promoted=null 확인.
+- 사용 도구는 ChatGPT Codex이다.
+- 적용한 소스는 `src/application-service.js`와 `src/repository.js`이다.
+- 업무 규칙 분석, 신청·대기 취소·승인·승인 취소 구현, FIFO 자동 승급과 트랜잭션 처리 검토, 테스트 실행과 오류 분석에 활용했다.
+- 작성자는 Windows 환경 설정, npm 설치, 테스트와 서버 실행, U01~U05 화면 검증, 증거 캡처 및 최종 결과 확인을 직접 수행했다.
+- 참고 자료는 [과제 안내문](../01_과제2_안내문.pdf), [API 계약](docs/API.md), [제공 테스트](tests/assignment.test.js), [Node.js SQLite 공식 문서](https://nodejs.org/docs/latest-v24.x/api/sqlite.html), [Express 공식 문서](https://expressjs.com/en/5x/api/)이다.
 
-승인 취소는 담당 운영자 화면의 승인된 신청에서 수행합니다. 각 신청의 ‘변경 이력 보기’로 저장 결과를 확인합니다. 다른 탭의 변경은 자동 반영되지 않으므로 ‘최신 정보 새로고침’을 사용하세요.
+## 제출 정보
 
-## DB 초기화와 이전 코드에서의 전환
+- GitHub URL [sehwa-song/web-service-assignment-2](https://github.com/sehwa-song/web-service-assignment-2)
+- 최종 커밋 SHA `[최종 README와 보고서 커밋 후 git rev-parse HEAD 결과 입력]`
+- 보고서 [docs/report.pdf](docs/report.pdf)
+- 편집용 보고서 [docs/report-working.docx](docs/report-working.docx)
+- 검증 증거 [docs/evidence/](docs/evidence/)
 
-서버를 먼저 종료하고 아래 명령에서 `RESET`을 입력합니다. 신청·변경 이력을 지우고 초기 계정·행사를 다시 만듭니다.
+GitHub URL과 최종 커밋 SHA는 LMS 온라인 작성란에 기입한다. 보고서 PDF는 저장소와 LMS에 같은 버전으로 제출한다.
 
-```sh
-npm run db:reset
-```
+## 제외 파일
 
-이전 배포본 DB에는 REVOKED 상태와 변경 이력 스키마가 없습니다. 새 배포본에서는 기존 DB를 초기화하세요. 운영 데이터 마이그레이션은 이 과제 범위가 아닙니다.
+다음 파일이나 데이터는 제출 대상에서 제외한다.
 
-선택 환경변수: PORT, DB_PATH, JWT_SECRET. 기본 실행에는 설정 파일이 필요 없습니다. 키 파일을 지우면 기존 토큰은 무효화됩니다.
-
-## 파일 구조
-
-- `src/application-service.js`: 학생 구현 TODO 4개와 트랜잭션
-- `src/repository.js`: 조회·저장·이력 저장 도구
-- `src/db.js`: SQLite 스키마·초기 데이터
-- `src/auth.js`: JWT 인증
-- `src/app.js`: 라우팅·형식 검사·조회 권한·오류 응답
-- `src/server.js`: 로컬 서버
-- `public/`: 승인 취소·이력 조회 포함 제공 화면
-- `tests/`: 기반·필수·선택 심화 테스트
-- `docs/API.md`: 상태·이력·입출력 계약
-
-## 제출 전 작성할 내용
-
-이 부분을 본인의 서비스 소개, 변경 파일, 구현 완료 여부, 실행 환경, 알려진 문제, 보고서·검증 증거 링크와 AI 사용 요약으로 바꾸세요. GitHub URL·커밋 SHA를 LMS에 제출하고 보고서 PDF를 저장소 `docs/report.pdf`와 LMS에 같은 버전으로 첨부합니다.
-
-`node_modules`, 생성 DB·서명 키, 실제 `.env`·JWT와 개인 정보는 제출하지 않습니다. 제공 코드와 직접 구현한 부분을 구분합니다.
-
-## 참고 문서
-
-- [Node.js SQLite](https://nodejs.org/docs/latest-v24.x/api/sqlite.html)
-- [Express API](https://expressjs.com/en/5x/api/)
-- [jsonwebtoken](https://github.com/auth0/node-jsonwebtoken)
+- `node_modules/`
+- `data/app.sqlite`
+- `data/jwt-secret.txt`
+- 실제 `.env` 파일
+- JWT 토큰
+- 개인 정보가 포함된 별도 파일
