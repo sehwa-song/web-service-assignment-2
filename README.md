@@ -91,7 +91,7 @@ T28~T30의 `TEST_INJECTED_FAILURE`는 임시 DB에 이력 저장 오류를 의�
 
 ## AI 활용
 
-- 사용 도구는 ChatGPT Codex이다.
+- AI 사용 도구는 ChatGPT Codex이다.
 - 적용한 소스는 `src/application-service.js`와 `src/repository.js`이다.
 - 업무 규칙 분석, 신청·대기 취소·승인·승인 취소 구현, FIFO 자동 승급과 트랜잭션 처리 검토, 테스트 실행과 오류 분석에 활용했다.
 - 작성자는 Windows 환경 설정, npm 설치, 테스트와 서버 실행, U01~U05 화면 검증, 증거 캡처 및 최종 결과 확인을 직접 수행했다.
@@ -99,8 +99,9 @@ T28~T30의 `TEST_INJECTED_FAILURE`는 임시 DB에 이력 저장 오류를 의�
 
 ## 제출 정보
 
-- GitHub URL [sehwa-song/web-service-assignment-2](https://github.com/sehwa-song/web-service-assignment-2)
-- 최종 커밋 SHA `[최종 README와 보고서 커밋 후 git rev-parse HEAD 결과 입력]`
+- **GitHub URL과 보고서 기준 커밋 SHA**
+  - GitHub URL [sehwa-song/web-service-assignment-2](https://github.com/sehwa-song/web-service-assignment-2)
+  - 보고서 기준 커밋 SHA `efd40932cab285de79b55da17a8637a97af46b97`
 - 보고서 [docs/report.pdf](docs/report.pdf)
 - 편집용 보고서 [docs/report-working.docx](docs/report-working.docx)
 - 검증 증거 [docs/evidence/](docs/evidence/)
